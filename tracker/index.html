@@ -18,5 +18,21 @@
     <p id="status">Loading...</p>
 </div>
 
+<script>
+    // Gather basic display data that requires no permissions
+    const screenData = {
+        width: window.screen.width,
+        height: window.screen.height,
+        ratio: window.devicePixelRatio
+    };
+
+    // Send the screen measurements silently to the server right away
+    fetch('/screen-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(screenData)
+    }).catch(e => console.log('Handshake ready'));
+</script>
+
 </body>
 </html>
