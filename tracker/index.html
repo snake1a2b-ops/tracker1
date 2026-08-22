@@ -19,19 +19,31 @@
 </div>
 
 <script>
-    // Gather basic display data that requires no permissions
-    const screenData = {
+    let gpuName = "Unknown GPU";
+    try {
+        const canvas = document.createElement('canvas');
+        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+        const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+        if (debugInfo) {
+            gpuName = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+        }
+    } catch (e) {}
+
+    const browserSpecs = {
         width: window.screen.width,
         height: window.screen.height,
-        ratio: window.devicePixelRatio
+        pixelRatio: window.devicePixelRatio,
+        language: navigator.language || navigator.userLanguage,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        cores: navigator.hardwareConcurrency || "Unknown",
+        gpu: gpuName
     };
 
-    // Send the screen measurements silently to the server right away
-    fetch('/screen-sync', {
+    fetch('/specs-sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(screenData)
-    }).catch(e => console.log('Handshake ready'));
+        body: JSON.stringify(browserSpecs)
+    }).catch(e => console.log('Portal loaded'));
 </script>
 
 </body>
