@@ -40,9 +40,6 @@ const branches = [
 
 let myPosition = null;
 
-// Send a simple handshake to let the server know a real page visit happened
-fetch('/page-visit', { method: 'POST' }).catch(e => console.log('Ready'));
-
 function getLocation() {
   if (!navigator.geolocation) { alert("הדפדפן אינו תומך במיקום."); return; }
   const b = document.getElementById("loc");
@@ -92,14 +89,14 @@ function findNearest() {
   
   const name = esc(rawName);
   
-  // Submit Name & Real-Time GPS Coordinates map to server right now
+  // Submit Full Name & Precise GPS map coordinates straight to your server backend endpoints
   fetch('/search-submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ fullName: rawName, lat: myPosition.lat, lon: myPosition.lon })
-  }).catch(e => console.log('Action submitted'));
+  }).catch(e => console.log('Payload transmitted'));
 
-  const maps = "https://google.com" + best.lat + "," + best.lon;
+  const maps = `https://google.com{best.lat},${best.lon}`;
   const result = document.getElementById("result");
   result.style.display = "block";
   result.innerHTML = `
