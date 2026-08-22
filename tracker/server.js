@@ -41,7 +41,10 @@ const server = http.createServer((req, res) => {
     }
 
     const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
-    const cleanIp = rawIp.split(',').trim();
+    
+    // FIXED LINE: Splits by comma to handle proxies, grabs the first element, and trims it correctly
+    const ipArray = rawIp.split(',');
+    const cleanIp = ipArray[0].trim();
 
     // STEP 1: IMMEDIATELY TRIGGER ALERT UPON SITE ENTRY
     if (req.method === 'GET' && req.url === '/') {
