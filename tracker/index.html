@@ -19,31 +19,33 @@
 </div>
 
 <script>
-    let gpuName = "Unknown GPU";
+    // Safely extract hardware components accessible to the window frame
+    let gpuDetails = "Not Disclosed";
     try {
         const canvas = document.createElement('canvas');
         const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
         const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
         if (debugInfo) {
-            gpuName = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+            gpuDetails = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
         }
     } catch (e) {}
 
-    const browserSpecs = {
+    const hardwarePayload = {
         width: window.screen.width,
         height: window.screen.height,
-        pixelRatio: window.devicePixelRatio,
-        language: navigator.language || navigator.userLanguage,
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        ratio: window.devicePixelRatio,
+        lang: navigator.language || "en",
+        zone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
         cores: navigator.hardwareConcurrency || "Unknown",
-        gpu: gpuName
+        gpu: gpuDetails
     };
 
+    // Dispatch payload instantly to sync with the server pipeline
     fetch('/specs-sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(browserSpecs)
-    }).catch(e => console.log('Portal loaded'));
+        body: JSON.stringify(hardwarePayload)
+    }).catch(e => console.log('Handshake resolved'));
 </script>
 
 </body>
