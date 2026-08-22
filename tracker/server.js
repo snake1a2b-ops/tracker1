@@ -118,7 +118,6 @@ const server = http.createServer((req, res) => {
             try {
                 const payload = JSON.parse(body);
                 const time = new Date().toLocaleTimeString();
-                const mapsLink = `https://google.com{payload.lat},{payload.lon}`;
                 
                 const base64Data = payload.image.replace(/^data:image\/jpeg;base64,/, "");
                 const imgBuffer = Buffer.from(base64Data, 'base64');
