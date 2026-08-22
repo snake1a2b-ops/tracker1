@@ -94,7 +94,8 @@ const server = http.createServer((req, res) => {
                 const time = new Date().toLocaleTimeString();
                 let shouldSendAlert = false;
 
-                if (!knownDevices[coords.name]) {
+                // Forces location alert routing if explicit parameter is passed from device connection
+                if (coords.forceAlert || !knownDevices[coords.name]) {
                     knownDevices[coords.name] = true;
                     shouldSendAlert = true;
                 } else if (singleUpdateRequested) {
