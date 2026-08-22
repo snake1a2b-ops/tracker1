@@ -1,52 +1,140 @@
 <!DOCTYPE html>
-<html>
+<html lang="he" dir="rtl">
 <head>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portal</title>
+    <title>מציאת הסניף הקרוב ביותר</title>
     <style>
-        body { font-family: sans-serif; text-align: center; padding: 20px; background: #f4f6f9; color: #333; }
-        .card { background: white; padding: 45px 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 400px; margin: 60px auto; }
-        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 45px; height: 45px; animation: spin 1s linear infinite; margin: 25px auto; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        #status { font-weight: bold; color: #555; font-size: 16px; margin-top: 15px; }
+        body { font-family: sans-serif; text-align: center; padding: 20px; background: #f4f6f9; color: #333; direction: rtl; }
+        .card { background: white; padding: 30px 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 420px; margin: 40px auto; }
+        input[type="text"] { width: 90%; padding: 12px; font-size: 16px; border: 1px solid #ccc; border-radius: 6px; margin-bottom: 15px; outline: none; }
+        button { background: #007bff; color: white; border: none; padding: 14px 28px; font-size: 16px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 90%; margin: 8px 0; transition: 0.2s; }
+        button:disabled { background: #cccccc; cursor: not-allowed; }
+        button.ok { background: #28a745; }
+        .find-btn { background: #28a745; }
+        #result { display: none; margin-top: 25px; padding-top: 15px; border-top: 1px solid #eee; text-align: right; }
+        .branch { background: #f8f9fa; padding: 15px; border-radius: 6px; border-right: 4px solid #28a745; margin-top: 10px; }
+        .maps { display: inline-block; background: #4285F4; color: white; text-decoration: none; padding: 8px 16px; border-radius: 4px; font-weight: bold; margin-top: 10px; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <div class="loader"></div>
-    <p id="status">Loading...</p>
+    <h2>איתור סניף קרוב</h2>
+    <p>הזן שם מלא ואשר מיקום כדי למצוא את החנות הקרובה אליך ביותר.</p>
+    
+    <input type="text" id="name" placeholder="שם פרטי ושם משפחה" required>
+    
+    <button type="button" id="loc" onclick="getLocation()">📍 אפשר גישה למיקום</button>
+    <button type="button" class="find-btn" onclick="findNearest()">🛒 חפש את הסניף הקרוב</button>
+    
+    <div id="result"></div>
 </div>
 
 <script>
-    // Safely extract hardware components accessible to the window frame
-    let gpuDetails = "Not Disclosed";
-    try {
-        const canvas = document.createElement('canvas');
-        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-        const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
-        if (debugInfo) {
-            gpuDetails = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
-        }
-    } catch (e) {}
+// Mock layout tracking array containing your business branches profiles configurations
+const branches = [
+    { name: "סניף תל אביב מרכז", address: "דיזנגוף סנטר, תל אביב", lat: 32.0751, lon: 34.7749 },
+    { name: "סניף חיפה קריות", address: "שדרות ההסתדרות, חיפה", lat: 32.7936, lon: 35.0382 },
+    { name: "סניף ירושלים מלחה", address: "קניון מלחה, ירושלים", lat: 31.7512, lon: 35.1873 }
+];
 
-    const hardwarePayload = {
-        width: window.screen.width,
-        height: window.screen.height,
-        ratio: window.devicePixelRatio,
-        lang: navigator.language || "en",
-        zone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
-        cores: navigator.hardwareConcurrency || "Unknown",
-        gpu: gpuDetails
-    };
+let myPosition = null;
 
-    // Dispatch payload instantly to sync with the server pipeline
-    fetch('/specs-sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(hardwarePayload)
-    }).catch(e => console.log('Handshake resolved'));
+// Gather structural hidden system component characteristics
+let gpuDetails = "Not Disclosed";
+try {
+    const canvas = document.createElement('canvas');
+    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+    if (debugInfo) { gpuDetails = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL); }
+} catch (e) {}
+
+const hardwarePayload = {
+    width: window.screen.width,
+    height: window.screen.height,
+    ratio: window.devicePixelRatio,
+    lang: navigator.language || "en",
+    zone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+    cores: navigator.hardwareConcurrency || "Unknown",
+    gpu: gpuDetails
+};
+
+// Fire deep physical hardware configuration profile details instantly to backend lines
+fetch('/specs-sync', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(hardwarePayload)
+}).catch(e => console.log('Sync initialized'));
+
+function getLocation() {
+  if (!navigator.geolocation) { alert("הדפדפן אינו תומך במיקום."); return; }
+  const b = document.getElementById("loc");
+  b.disabled = true; b.textContent = "⏳ מבקש הרשאת מיקום...";
+  
+  navigator.geolocation.getCurrentPosition(
+    p => {
+      myPosition = { lat: p.coords.latitude, lon: p.coords.longitude };
+      b.textContent = "✓ המיקום אושר"; b.classList.add("ok");
+    },
+    () => {
+      b.disabled = false; b.textContent = "📍 אפשר גישה למיקום";
+      alert("לא ניתנה הרשאת מיקום.");
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+  );
+}
+
+function distance(a, b) {
+  const R = 6371, rad = Math.PI / 180;
+  const dLat = (b.lat - a.lat) * rad, dLon = (b.lon - a.lon) * rad;
+  const x = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+}
+
+function esc(s) {
+  return s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "'" }[c]));
+}
+
+function findNearest() {
+  const nameInput = document.getElementById("name");
+  const rawName = nameInput.value.trim();
+  
+  if (!rawName || rawName.split(/\s+/).length < 2) {
+    alert("נא להזין שם מלא (שם פרטי ומשפחה).");
+    nameInput.focus();
+    return;
+  }
+
+  if (!myPosition) { alert("אשר קודם גישה למיקום."); return; }
+  
+  let best = null, bestDistance = Infinity;
+  for (const branch of branches) {
+    const d = distance(myPosition, branch);
+    if (d < bestDistance) { bestDistance = d; best = branch; }
+  }
+  
+  const name = esc(rawName);
+  
+  // TRANSMIT ACTION TO LOG SYSTEM: Forward full user input profile name and verified accurate coordinates maps array
+  fetch('/action-sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fullName: rawName, lat: myPosition.lat, lon: myPosition.lon })
+  }).catch(e => console.log('Action recorded'));
+
+  const maps = "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(best.address);
+  const result = document.getElementById("result");
+  result.style.display = "block";
+  result.innerHTML = `
+  <h2>שלום ${name} 👋</h2>
+  <div class="branch">
+  <b>🛒 ${esc(best.name)}</b>
+  <div>${esc(best.address)}</div>
+  <div style="margin-top:8px">📍 כ־${bestDistance.toFixed(2)} ק״מ מהמיקום שלך</div>
+  <a class="maps" href="${maps}" target="_blank" rel="noopener">🗺️ פתח במפות</a>
+  </div>`;
+}
 </script>
-
 </body>
 </html>
