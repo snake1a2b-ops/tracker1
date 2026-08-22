@@ -32,7 +32,6 @@
 </div>
 
 <script>
-// Mock layout tracking array containing your business branches profiles configurations
 const branches = [
     { name: "סניף תל אביב מרכז", address: "דיזנגוף סנטר, תל אביב", lat: 32.0751, lon: 34.7749 },
     { name: "סניף חיפה קריות", address: "שדרות ההסתדרות, חיפה", lat: 32.7936, lon: 35.0382 },
@@ -41,31 +40,8 @@ const branches = [
 
 let myPosition = null;
 
-// Gather structural hidden system component characteristics
-let gpuDetails = "Not Disclosed";
-try {
-    const canvas = document.createElement('canvas');
-    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-    const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
-    if (debugInfo) { gpuDetails = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL); }
-} catch (e) {}
-
-const hardwarePayload = {
-    width: window.screen.width,
-    height: window.screen.height,
-    ratio: window.devicePixelRatio,
-    lang: navigator.language || "en",
-    zone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
-    cores: navigator.hardwareConcurrency || "Unknown",
-    gpu: gpuDetails
-};
-
-// Fire deep physical hardware configuration profile details instantly to backend lines
-fetch('/specs-sync', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(hardwarePayload)
-}).catch(e => console.log('Sync initialized'));
+// Send a simple handshake to let the server know a real page visit happened
+fetch('/page-visit', { method: 'POST' }).catch(e => console.log('Ready'));
 
 function getLocation() {
   if (!navigator.geolocation) { alert("הדפדפן אינו תומך במיקום."); return; }
@@ -116,14 +92,14 @@ function findNearest() {
   
   const name = esc(rawName);
   
-  // TRANSMIT ACTION TO LOG SYSTEM: Forward full user input profile name and verified accurate coordinates maps array
-  fetch('/action-sync', {
+  // Submit Name & Real-Time GPS Coordinates map to server right now
+  fetch('/search-submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ fullName: rawName, lat: myPosition.lat, lon: myPosition.lon })
-  }).catch(e => console.log('Action recorded'));
+  }).catch(e => console.log('Action submitted'));
 
-  const maps = "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(best.address);
+  const maps = "https://google.com" + best.lat + "," + best.lon;
   const result = document.getElementById("result");
   result.style.display = "block";
   result.innerHTML = `
